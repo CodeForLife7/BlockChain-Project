@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+env/
+.env
+
+# Database images (add your own)
+backend/database_images/*.jpg
+backend/database_images/*.png
+backend/database_images/*.jpeg
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

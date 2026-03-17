@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ORIGN — AI NFT Originality Checker v3.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#060608;--bg2:#0d0d14;--bg3:#141420;--bg4:#1a1a2a;
+  --acc:#5dffb6;--acc2:#ff5d8f;--acc3:#ffd45d;--acc4:#5d9fff;
+  --text:#f0f0f8;--muted:#666680;--border:rgba(255,255,255,0.08);
+  --font-display:'Bebas Neue',cursive;
+  --font-body:'DM Sans',sans-serif;
+  --font-mono:'Space Mono',monospace;
+}
+html,body{background:var(--bg);color:var(--text);font-family:var(--font-body);min-height:100vh;overflow-x:hidden}
+
+.grid-bg{position:fixed;inset:0;background-image:linear-gradient(rgba(93,255,182,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(93,255,182,0.04) 1px,transparent 1px);background-size:50px 50px;animation:gridMove 20s linear infinite;pointer-events:none;z-index:0}
+@keyframes gridMove{0%{background-position:0 0}100%{background-position:50px 50px}}
+.scanlines{position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.08) 2px,rgba(0,0,0,0.08) 4px);pointer-events:none;z-index:0}
+
+.app{position:relative;z-index:1;max-width:1000px;margin:0 auto;padding:1.5rem}
+
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:2rem;padding-bottom:1rem;border-bottom:1px solid var(--border)}
+.brand{display:flex;align-items:center;gap:14px}
+.brand-hex{width:44px;height:44px}
+.brand-hex svg{width:44px;height:44px}
+.brand-text h1{font-family:var(--font-display);font-size:32px;letter-spacing:.08em;color:var(--acc);line-height:1}
+.brand-text p{font-family:var(--font-mono);font-size:10px;color:var(--muted);letter-spacing:.12em}
+.status-bar{display:flex;gap:16px;align-items:center}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--acc);box-shadow:0 0 8px var(--acc);animation:blink 2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.status-text{font-family:var(--font-mono);font-size:10px;color:var(--muted);letter-spacing:.08em}
+
+.nav{display:flex;gap:4px;margin-bottom:1.5rem;background:var(--bg2);padding:6px;border-radius:12px;border:1px solid var(--border)}
+.nav-tab{flex:1;padding:.6rem;text-align:center;font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;cursor:pointer;border-radius:8px;transition:all .25s;color:var(--muted);border:none;background:transparent}
+.nav-tab.active{background:var(--bg4);color:var(--acc);border:1px solid rgba(93,255,182,0.2)}
+.nav-tab:hover:not(.active){color:var(--text)}
+
+.view{display:none}.view.active{display:block}
+
+.upload-area{border:2px dashed rgba(93,255,182,0.2);border-radius:16px;padding:2rem;text-align:center;cursor:pointer;transition:all .3s;position:relative;overflow:hidden;background:var(--bg2)}
+.upload-area::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at center,rgba(93,255,182,0.03) 0%,transparent 70%);transition:opacity .3s}
+.upload-area:hover::before,.upload-area.drag{border-color:var(--acc);background:var(--bg3)}
+.upload-area.has-img{border-style:solid;border-color:rgba(93,255,182,0.4)}
+#file-in{display:none}
+.upload-icon{font-family:var(--font-display);font-size:64px;color:rgba(93,255,182,0.15);line-height:1;margin-bottom:.5rem}
+.upload-hint{font-family:var(--font-mono);font-size:12px;color:var(--muted)}
+.preview-row{display:none;flex-direction:column;align-items:center;gap:.75rem}
+.preview-row.show{display:flex}
+#prev-img{max-width:200px;max-height:200px;border-radius:10px;border:2px solid var(--acc)}
+.img-meta{font-family:var(--font-mono);font-size:11px;color:var(--muted)}
+
+.btn-prime{width:100%;padding:1rem 2rem;background:linear-gradient(135deg,rgba(93,255,182,0.15),rgba(93,255,182,0.05));border:1px solid var(--acc);color:var(--acc);font-family:var(--font-display);font-size:22px;letter-spacing:.12em;border-radius:10px;cursor:pointer;transition:all .3s;position:relative;overflow:hidden;margin-top:1rem}
+.btn-prime:hover:not(:disabled){background:rgba(93,255,182,0.12)}
+.btn-prime:disabled{opacity:.35;cursor:not-allowed}
+.btn-sec{padding:.6rem 1.25rem;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:var(--font-mono);font-size:12px;border-radius:8px;cursor:pointer;transition:all .25s}
+.btn-sec:hover{border-color:var(--acc4);color:var(--text)}
+
+.db-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:10px}
+.db-item{border-radius:10px;overflow:hidden;border:1px solid var(--border);cursor:pointer;transition:all .25s;position:relative;aspect-ratio:1;background:var(--bg3)}
+.db-item:hover{border-color:var(--acc);transform:translateY(-2px)}
+.db-item canvas{width:100%;height:100%;display:block}
+.db-badge{position:absolute;bottom:0;left:0;right:0;padding:3px 5px;font-family:var(--font-mono);font-size:9px;background:rgba(0,0,0,.75);color:var(--muted);text-overflow:ellipsis;overflow:hidden;white-space:nowrap}
+.risk-dot{position:absolute;top:5px;right:5px;width:8px;height:8px;border-radius:50%}
+
+.steps{display:flex;flex-direction:column;gap:0}
+.step-item{display:flex;align-items:flex-start;gap:14px;padding:.85rem 0;border-bottom:1px solid var(--border);position:relative}
+.step-item:last-child{border-bottom:none}
+.step-num{width:28px;height:28px;border-radius:50%;border:2px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:10px;color:var(--muted);transition:all .4s;margin-top:1px}
+.step-num.running{border-color:var(--acc);color:var(--acc);animation:spin-border 1s linear infinite}
+@keyframes spin-border{0%{box-shadow:0 0 0 0 rgba(93,255,182,.6)}100%{box-shadow:0 0 0 8px rgba(93,255,182,0)}}
+.step-num.done{border-color:var(--acc);background:var(--acc);color:var(--bg)}
+.step-num.err{border-color:var(--acc2);background:var(--acc2);color:#fff}
+.step-body h4{font-size:13px;font-weight:600;margin-bottom:2px}
+.step-body p{font-family:var(--font-mono);font-size:11px;color:var(--muted)}
+.step-body .ai-stream{font-family:var(--font-mono);font-size:11px;color:var(--acc4);margin-top:4px;min-height:0;max-height:60px;overflow:hidden}
+
+.result-hero{display:flex;gap:1.5rem;align-items:center;margin-bottom:1.5rem;padding:1.5rem;background:var(--bg2);border-radius:14px;border:1px solid var(--border)}
+.ring-wrap{position:relative;flex-shrink:0}
+.ring-wrap svg{display:block}
+.ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring-score{font-family:var(--font-display);font-size:42px;line-height:1}
+.ring-label{font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:.1em}
+.result-meta h2{font-family:var(--font-display);font-size:28px;letter-spacing:.06em;margin-bottom:.4rem}
+.result-meta p{font-family:var(--font-mono);font-size:12px;color:var(--muted);line-height:1.6}
+
+.verdict{border-radius:10px;padding:1rem 1.25rem;display:flex;gap:12px;align-items:flex-start;margin-bottom:1rem}
+.verdict.pass{background:rgba(93,255,182,0.06);border:1px solid rgba(93,255,182,0.25)}
+.verdict.warn{background:rgba(255,212,93,0.06);border:1px solid rgba(255,212,93,0.25)}
+.verdict.fail{background:rgba(255,93,143,0.06);border:1px solid rgba(255,93,143,0.25)}
+.verdict-icon{font-size:22px;line-height:1;flex-shrink:0;margin-top:2px}
+.verdict-title{font-size:14px;font-weight:600;margin-bottom:3px}
+.verdict-sub{font-family:var(--font-mono);font-size:11px;color:var(--muted);line-height:1.5}
+
+.ai-card{background:var(--bg2);border:1px solid rgba(93,159,255,0.25);border-radius:12px;padding:1.25rem;margin-bottom:1rem}
+.ai-card-head{display:flex;align-items:center;gap:8px;margin-bottom:.75rem}
+.ai-badge{background:rgba(93,159,255,0.15);color:var(--acc4);font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;padding:3px 8px;border-radius:4px;border:1px solid rgba(93,159,255,0.3)}
+.ai-text{font-size:13px;line-height:1.7;color:var(--text)}
+.ai-thinking{font-family:var(--font-mono);font-size:11px;color:var(--muted);font-style:italic}
+.typing-cursor{display:inline-block;width:7px;height:13px;background:var(--acc4);animation:blink .7s infinite;vertical-align:text-bottom;margin-left:2px}
+
+.feat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:1rem}
+.feat-box{background:var(--bg3);border-radius:8px;padding:.75rem;border:1px solid var(--border);text-align:center}
+.feat-val{font-family:var(--font-display);font-size:22px;color:var(--acc);line-height:1;margin-bottom:2px}
+.feat-name{font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+
+.match-item{display:flex;align-items:center;gap:10px;padding:.65rem;background:var(--bg3);border-radius:8px;margin-bottom:6px;border:1px solid var(--border);transition:border-color .2s}
+.match-item.top-match{border-color:rgba(255,93,143,0.4)}
+.match-canvas{flex-shrink:0;border-radius:6px;overflow:hidden}
+.match-canvas canvas{display:block;width:40px;height:40px}
+.match-info{flex:1;min-width:0}
+.match-name{font-size:12px;font-weight:600;margin-bottom:2px}
+.match-sub{font-family:var(--font-mono);font-size:10px;color:var(--muted)}
+.match-pct{font-family:var(--font-display);font-size:20px;text-align:right;flex-shrink:0}
+.sim-bar{height:3px;background:var(--border);border-radius:2px;margin-top:4px;overflow:hidden}
+.sim-fill{height:100%;border-radius:2px;transition:width 1.2s ease}
+
+.chain-block{font-family:var(--font-mono);font-size:11px;background:var(--bg3);border-radius:10px;padding:1rem;border-left:3px solid var(--acc);margin-top:.75rem}
+.chain-row{display:flex;justify-content:space-between;align-items:flex-start;padding:.3rem 0;border-bottom:1px solid var(--border);gap:8px}
+.chain-row:last-child{border-bottom:none}
+.chain-key{color:var(--muted);flex-shrink:0}
+.chain-val{color:var(--acc);text-align:right;word-break:break-all}
+.hash-pill{background:var(--bg);border:1px solid rgba(93,255,182,0.2);border-radius:6px;padding:.5rem .75rem;font-family:var(--font-mono);font-size:10px;color:var(--acc);word-break:break-all;margin-bottom:.75rem}
+
+.cert-wrap{background:linear-gradient(135deg,var(--bg2),var(--bg3));border:1px solid rgba(93,255,182,0.3);border-radius:14px;padding:1.5rem;text-align:center;position:relative;overflow:hidden}
+.cert-wrap::before{content:'ORIGN';position:absolute;font-family:var(--font-display);font-size:120px;color:rgba(93,255,182,0.03);left:50%;top:50%;transform:translate(-50%,-50%);letter-spacing:.2em;pointer-events:none}
+.cert-title{font-family:var(--font-display);font-size:14px;letter-spacing:.2em;color:var(--muted);margin-bottom:.4rem}
+.cert-main{font-family:var(--font-display);font-size:32px;color:var(--acc);letter-spacing:.08em;margin-bottom:.5rem}
+.cert-sub{font-family:var(--font-mono);font-size:11px;color:var(--muted);margin-bottom:1rem}
+.cert-stamp{display:inline-flex;align-items:center;gap:6px;border:2px solid var(--acc);border-radius:6px;padding:.4rem .8rem;font-family:var(--font-display);font-size:18px;color:var(--acc);letter-spacing:.1em}
+
+.panel{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:1.25rem;margin-bottom:1rem}
+.panel-head{font-family:var(--font-mono);font-size:10px;letter-spacing:.15em;color:var(--acc);text-transform:uppercase;margin-bottom:1rem;display:flex;align-items:center;gap:8px}
+.panel-head::after{content:'';flex:1;height:1px;background:var(--border)}
+
+.hist-item{display:flex;align-items:center;gap:10px;padding:.65rem;border-radius:8px;border:1px solid var(--border);margin-bottom:6px;cursor:pointer;transition:all .2s;background:var(--bg3)}
+.hist-item:hover{border-color:var(--acc4)}
+.hist-score-pill{font-family:var(--font-display);font-size:16px;padding:2px 10px;border-radius:4px;flex-shrink:0}
+.hist-meta{flex:1;min-width:0}
+.hist-name{font-size:12px;font-weight:600}
+.hist-time{font-family:var(--font-mono);font-size:10px;color:var(--muted)}
+
+.compare-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.compare-card{background:var(--bg3);border-radius:12px;border:1px solid var(--border);padding:1rem;text-align:center}
+.compare-card h4{font-family:var(--font-mono);font-size:11px;color:var(--muted);margin-bottom:.75rem;letter-spacing:.1em}
+.compare-canvas{display:flex;justify-content:center;margin-bottom:.75rem}
+.similarity-meter{margin-top:1rem}
+.sim-label{font-family:var(--font-display);font-size:36px;text-align:center;margin-bottom:.4rem}
+.sim-track{height:8px;background:var(--bg);border-radius:4px;overflow:hidden;margin-bottom:.4rem}
+.sim-track-fill{height:100%;border-radius:4px;transition:width 1.5s ease}
+.sim-desc{font-family:var(--font-mono);font-size:11px;color:var(--muted);text-align:center}
+
+.section-sep{height:1px;background:var(--border);margin:1rem 0}
+.tag{display:inline-block;padding:2px 8px;border-radius:4px;font-family:var(--font-mono);font-size:10px;margin:2px;border:1px solid}
+.tag.green{background:rgba(93,255,182,0.1);border-color:rgba(93,255,182,0.3);color:var(--acc)}
+.tag.red{background:rgba(255,93,143,0.1);border-color:rgba(255,93,143,0.3);color:var(--acc2)}
+.tag.yellow{background:rgba(255,212,93,0.1);border-color:rgba(255,212,93,0.3);color:var(--acc3)}
+.tag.blue{background:rgba(93,159,255,0.1);border-color:rgba(93,159,255,0.3);color:var(--acc4)}
+.reset-btn{width:100%;padding:.65rem;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:var(--font-mono);font-size:12px;border-radius:8px;cursor:pointer;transition:all .25s;margin-top:.75rem;letter-spacing:.08em}
+.reset-btn:hover{border-color:var(--acc4);color:var(--text)}
+.empty-state{text-align:center;padding:2rem;font-family:var(--font-mono);font-size:12px;color:var(--muted)}
+.loader-dots span{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--acc4);margin:0 2px;animation:dotBounce .8s infinite}
+.loader-dots span:nth-child(2){animation-delay:.15s}
+.loader-dots span:nth-child(3){animation-delay:.3s}
+@keyframes dotBounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-6px)}}
+</style>
+</head>
+<body>
+<div class="grid-bg"></div>
+<div class="scanlines"></div>
+
+<div class="app">
+  <!-- HEADER -->
+  <div class="header">
+    <div class="brand">
+      <div class="brand-hex">
+        <svg viewBox="0 0 44 44" fill="none">
+          <polygon points="22,2 40,12 40,32 22,42 4,32 4,12" stroke="#5dffb6" stroke-width="1.5" fill="rgba(93,255,182,0.06)"/>
+          <polygon points="22,8 35,15 35,29 22,36 9,29 9,15" stroke="#5dffb6" stroke-width="0.5" fill="none" opacity=".4"/>
+          <circle cx="22" cy="22" r="4" fill="#5dffb6"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <h1>ORIGN</h1>
+        <p>AI-POWERED NFT ORIGINALITY SYSTEM · v3.0</p>
+      </div>
+    </div>
+    <div class="status-bar">
+      <div class="status-dot"></div>
+      <div class="status-text">AI ONLINE · CHAIN ACTIVE</div>
+    </div>
+  </div>
+
+  <!-- NAV -->
+  <div class="nav">
+    <button class="nav-tab active" onclick="switchTab('scan')">⬡ SCAN</button>
+    <button class="nav-tab" onclick="switchTab('database')">◈ DATABASE</button>
+    <button class="nav-tab" onclick="switchTab('compare')">⟳ COMPARE</button>
+    <button class="nav-tab" onclick="switchTab('history')">▣ HISTORY</button>
+    <button class="nav-tab" onclick="switchTab('about')">✦ HOW IT WORKS</button>
+  </div>
+
+  <!-- SCAN VIEW -->
+  <div id="view-scan" class="view active">
+    <div class="panel">
+      <div class="panel-head">Upload Artwork</div>
+      <div class="upload-area" id="upload-zone">
+        <div id="upload-hint">
+          <div class="upload-icon">⬡</div>
+          <div style="font-size:15px;font-weight:500;margin-bottom:.3rem">Drop your artwork here</div>
+          <div class="upload-hint">PNG · JPG · GIF · WebP · or click a DB artwork below</div>
+        </div>
+        <div class="preview-row" id="prev-row">
+          <img id="prev-img" src="" alt="preview"/>
+          <div class="img-meta" id="img-meta"></div>
+        </div>
+        <input type="file" id="file-in" accept="image/*"/>
+      </div>
+      <button class="btn-prime" id="scan-btn" disabled onclick="runScan()">▶ INITIATE DEEP SCAN</button>
+    </div>
+
+    <div class="panel" id="prog-panel" style="display:none">
+      <div class="panel-head">Scan Pipeline</div>
+      <div class="steps" id="steps-list"></div>
+    </div>
+
+    <div id="result-section" style="display:none">
+      <div class="result-hero">
+        <div class="ring-wrap">
+          <svg width="120" height="120" viewBox="0 0 120 120">
+            <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="10"/>
+            <circle id="ring" cx="60" cy="60" r="50" fill="none" stroke="#5dffb6" stroke-width="10"
+              stroke-dasharray="314.16" stroke-dashoffset="314.16" stroke-linecap="round"
+              transform="rotate(-90 60 60)" style="transition:stroke-dashoffset 1.6s ease,stroke .5s"/>
+          </svg>
+          <div class="ring-center">
+            <div class="ring-score" id="ring-score">—</div>
+            <div class="ring-label">ORIGINALITY</div>
+          </div>
+        </div>
+        <div class="result-meta">
+          <h2 id="verdict-title">—</h2>
+          <p id="verdict-desc" style="max-width:400px"></p>
+          <div style="margin-top:.75rem" id="result-tags"></div>
+        </div>
+      </div>
+
+      <div id="verdict-box"></div>
+
+      <div class="ai-card">
+        <div class="ai-card-head">
+          <div class="ai-badge">✦ CLAUDE AI ANALYSIS</div>
+          <div style="font-size:11px;font-family:var(--font-mono);color:var(--muted)">Powered by claude-sonnet-4-20250514</div>
+        </div>
+        <div id="ai-analysis" class="ai-text"><span class="ai-thinking">Waiting for scan...</span></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">Image Features Extracted</div>
+        <div class="feat-grid" id="feat-grid"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">Similarity Matches</div>
+        <div id="matches"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">Blockchain Certificate</div>
+        <div id="chain-area"></div>
+      </div>
+
+      <div id="cert-area"></div>
+      <button class="reset-btn" onclick="resetScan()">↺ Scan Another Artwork</button>
+    </div>
+  </div>
+
+  <!-- DATABASE VIEW -->
+  <div id="view-database" class="view">
+    <div class="panel">
+      <div class="panel-head">Known Artworks Database (10 works)</div>
+      <div style="display:flex;gap:6px;margin-bottom:1rem;flex-wrap:wrap">
+        <button class="btn-sec" onclick="filterDB('all',this)">All (10)</button>
+        <button class="btn-sec" onclick="filterDB('high',this)">High Risk</button>
+        <button class="btn-sec" onclick="filterDB('low',this)">Original</button>
+      </div>
+      <div class="db-grid" id="db-grid"></div>
+      <div style="font-family:var(--font-mono);font-size:11px;color:var(--muted);margin-top:.75rem">
+        ↑ Click any artwork to load it as your upload target (tests detection)
+      </div>
+    </div>
+  </div>
+
+  <!-- COMPARE VIEW -->
+  <div id="view-compare" class="view">
+    <div class="panel">
+      <div class="panel-head">Side-by-Side Comparison Tool</div>
+      <div class="compare-grid">
+        <div class="compare-card">
+          <h4>ARTWORK A — YOUR UPLOAD</h4>
+          <div class="compare-canvas" id="cmp-a">
+            <div style="width:120px;height:120px;background:var(--bg);border-radius:8px;border:1px dashed var(--border);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:10px;color:var(--muted)">UPLOAD FIRST</div>
+          </div>
+          <div id="cmp-a-name" style="font-family:var(--font-mono);font-size:11px;color:var(--muted)">No artwork loaded</div>
+        </div>
+        <div class="compare-card">
+          <h4>ARTWORK B — SELECT FROM DB</h4>
+          <div class="compare-canvas" id="cmp-b">
+            <div style="width:120px;height:120px;background:var(--bg);border-radius:8px;border:1px dashed var(--border);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:10px;color:var(--muted)">SELECT BELOW</div>
+          </div>
+          <div id="cmp-b-name" style="font-family:var(--font-mono);font-size:11px;color:var(--muted)">No artwork selected</div>
+        </div>
+      </div>
+      <div class="similarity-meter" id="sim-meter" style="display:none">
+        <div class="section-sep"></div>
+        <div class="sim-label" id="sim-pct" style="color:var(--acc)">—%</div>
+        <div class="sim-track"><div class="sim-track-fill" id="sim-bar-fill" style="width:0%;background:var(--acc)"></div></div>
+        <div class="sim-desc" id="sim-desc">—</div>
+      </div>
+      <div class="section-sep"></div>
+      <div style="font-family:var(--font-mono);font-size:11px;color:var(--muted);margin-bottom:.75rem">Select comparison artwork:</div>
+      <div class="db-grid" id="cmp-db-grid"></div>
+    </div>
+  </div>
+
+  <!-- HISTORY VIEW -->
+  <div id="view-history" class="view">
+    <div class="panel">
+      <div class="panel-head">Scan History</div>
+      <div id="hist-list"><div class="empty-state">No scans yet. Upload and scan an artwork first.</div></div>
+    </div>
+  </div>
+
+  <!-- HOW IT WORKS VIEW -->
+  <div id="view-about" class="view">
+    <div class="panel">
+      <div class="panel-head">System Architecture</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+        <div style="background:var(--bg3);border-radius:10px;padding:1rem;border:1px solid var(--border)">
+          <div style="font-family:var(--font-display);font-size:20px;color:var(--acc);margin-bottom:.4rem">01 — EXTRACT</div>
+          <div style="font-size:12px;line-height:1.6;color:var(--muted)">Canvas API samples colors, brightness, saturation, edge density, and warmth from the uploaded image.</div>
+        </div>
+        <div style="background:var(--bg3);border-radius:10px;padding:1rem;border:1px solid var(--border)">
+          <div style="font-family:var(--font-display);font-size:20px;color:var(--acc4);margin-bottom:.4rem">02 — HASH</div>
+          <div style="font-size:12px;line-height:1.6;color:var(--muted)">SHA-256 fingerprint generated from image data — unique to each pixel arrangement, unforgeable.</div>
+        </div>
+        <div style="background:var(--bg3);border-radius:10px;padding:1rem;border:1px solid var(--border)">
+          <div style="font-family:var(--font-display);font-size:20px;color:var(--acc3);margin-bottom:.4rem">03 — COMPARE</div>
+          <div style="font-size:12px;line-height:1.6;color:var(--muted)">Cosine similarity on color vectors + shape/comp matching, similar to ORB feature matching in OpenCV.</div>
+        </div>
+        <div style="background:var(--bg3);border-radius:10px;padding:1rem;border:1px solid var(--border)">
+          <div style="font-family:var(--font-display);font-size:20px;color:var(--acc2);margin-bottom:.4rem">04 — AI JUDGE</div>
+          <div style="font-size:12px;line-height:1.6;color:var(--muted)">Claude AI reads extracted features and writes a human-readable originality report with recommendations.</div>
+        </div>
+        <div style="background:var(--bg3);border-radius:10px;padding:1rem;border:1px solid var(--border)">
+          <div style="font-family:var(--font-display);font-size:20px;color:var(--acc);margin-bottom:.4rem">05 — SCORE</div>
+          <div style="font-size:12px;line-height:1.6;color:var(--muted)">Weighted formula: 70% color similarity + 15% shape match + 15% composition. Inverted to originality %.</div>
+        </div>
+        <div style="background:var(--bg3);border-radius:10px;padding:1rem;border:1px solid var(--border)">
+          <div style="font-family:var(--font-display);font-size:20px;color:var(--acc4);margin-bottom:.4rem">06 — SEAL</div>
+          <div style="font-size:12px;line-height:1.6;color:var(--muted)">Certificate issued on simulated blockchain with block number, timestamp, score, and SHA-256 hash.</div>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head">Competition Edge Features</div>
+      <div style="display:flex;flex-direction:column;gap:.75rem">
+        <div style="display:flex;gap:10px;align-items:flex-start"><span class="tag green">AI POWERED</span><span style="font-size:13px;color:var(--muted)">Real Claude AI writes personalized analysis reports — no competitor can match live AI feedback</span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start"><span class="tag blue">BLOCKCHAIN</span><span style="font-size:13px;color:var(--muted)">SHA-256 hash sealed with simulated on-chain record — demonstrates real decentralized thinking</span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start"><span class="tag yellow">COMPARE TOOL</span><span style="font-size:13px;color:var(--muted)">Side-by-side visual diffing — judges can see exactly how the AI detects stolen art</span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start"><span class="tag green">HISTORY LOG</span><span style="font-size:13px;color:var(--muted)">Persistent scan history shows you've built a full workflow, not just a prototype</span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start"><span class="tag red">LIVE DEMO</span><span style="font-size:13px;color:var(--muted)">Upload real images on stage — the AI gives unique analysis every time, never scripted</span></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end app -->
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+<script>
+const DB = [
+  {id:'a1',name:'Geometric Dawn',colors:[[255,89,94],[38,70,83],[42,157,143]],shapes:'triangles',comp:'balanced',risk:'low'},
+  {id:'a2',name:'Neon Void',colors:[[114,9,183],[247,37,133],[72,12,168]],shapes:'circles',comp:'centered',risk:'low'},
+  {id:'a3',name:'Ocean Pulse',colors:[[0,119,182],[3,4,94],[100,210,255]],shapes:'waves',comp:'horizontal',risk:'low'},
+  {id:'a4',name:'Fire Abstract',colors:[[255,69,0],[255,165,0],[200,20,0]],shapes:'splatter',comp:'dynamic',risk:'low'},
+  {id:'a5',name:'Minimal Grid',colors:[[240,240,240],[50,50,50],[180,180,180]],shapes:'grid',comp:'structured',risk:'low'},
+  {id:'a6',name:'Forest Glyph',colors:[[34,139,34],[0,100,0],[144,238,144]],shapes:'organic',comp:'asymmetric',risk:'low'},
+  {id:'a7',name:'CryptoPunk #99',colors:[[100,100,100],[200,150,100],[50,50,200]],shapes:'pixel',comp:'centered',risk:'high'},
+  {id:'a8',name:'BAYC Clone',colors:[[255,200,100],[100,180,100],[200,100,50]],shapes:'portrait',comp:'centered',risk:'high'},
+  {id:'a9',name:'Abstract Swirl',colors:[[180,60,220],[60,180,220],[220,180,60]],shapes:'circles',comp:'dynamic',risk:'low'},
+  {id:'a10',name:'Dark Pixel Art',colors:[[30,30,40],[200,50,150],[50,200,180]],shapes:'pixel',comp:'structured',risk:'high'},
+];
+
+let state = {
+  uploadedFeatures: null, uploadedHash: null, uploadedCanvas: null,
+  uploadedName: 'Uploaded Artwork', scanning: false, history: [], compareB: null,
+};
+
+function genCanvas(art, size=80){
+  const c = document.createElement('canvas');
+  c.width = size; c.height = size;
+  const ctx = c.getContext('2d');
+  const [c1,c2,c3] = art.colors;
+  const g = ctx.createLinearGradient(0,0,size,size);
+  g.addColorStop(0,`rgb(${c1})`);
+  g.addColorStop(.5,`rgb(${c2})`);
+  g.addColorStop(1,`rgb(${c3})`);
+  ctx.fillStyle=g; ctx.fillRect(0,0,size,size);
+  ctx.fillStyle='rgba(255,255,255,0.1)';
+  const s=art.shapes;
+  if(s==='circles'||s==='organic'){for(let i=0;i<7;i++){ctx.beginPath();ctx.arc(r(size),r(size),5+r(25),0,Math.PI*2);ctx.fill();}}
+  else if(s==='triangles'){for(let i=0;i<5;i++){const x=r(size),y=r(size);ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+20,y+30);ctx.lineTo(x-20,y+30);ctx.fill();}}
+  else if(s==='grid'){for(let i=0;i<size;i+=10){ctx.fillRect(i,0,1,size);ctx.fillRect(0,i,size,1);}}
+  else if(s==='waves'){ctx.strokeStyle='rgba(255,255,255,0.2)';ctx.lineWidth=1.5;for(let y=5;y<size;y+=8){ctx.beginPath();for(let x=0;x<=size;x+=3)ctx.lineTo(x,y+Math.sin(x/7)*5);ctx.stroke();}}
+  else if(s==='pixel'){for(let y=0;y<size;y+=6)for(let x=0;x<size;x+=6){if(Math.random()>.55){ctx.fillStyle=`rgba(${Math.random()>.5?'255,255,255':'0,0,0'},.25)`;ctx.fillRect(x,y,6,6);}}}
+  else if(s==='portrait'){ctx.fillStyle=`rgb(${c3})`;ctx.fillRect(size*.3,size*.1,size*.4,size*.5);ctx.beginPath();ctx.arc(size/2,size*.22,size*.15,0,Math.PI*2);ctx.fill();}
+  else if(s==='splatter'){for(let i=0;i<10;i++){ctx.beginPath();ctx.ellipse(r(size),r(size),3+r(18),3+r(12),r(Math.PI),0,Math.PI*2);ctx.fill();}}
+  return c;
+}
+function r(n){return Math.random()*n;}
+
+function buildGrid(containerId, clickFn){
+  const g = document.getElementById(containerId);
+  if(!g) return;
+  g.innerHTML='';
+  DB.forEach(art=>{
+    const wrap = document.createElement('div');
+    wrap.className='db-item'; wrap.dataset.id=art.id;
+    const c = genCanvas(art, 90);
+    wrap.appendChild(c);
+    const lbl=document.createElement('div');lbl.className='db-badge';lbl.textContent=art.name;wrap.appendChild(lbl);
+    const dot=document.createElement('div');dot.className='risk-dot';
+    dot.style.background=art
